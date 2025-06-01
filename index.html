@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSS Profile Matching</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f8f8; /* Warna latar belakang pastel */
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .card {
+            background-color: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .btn-primary {
+            background-color: #a7d9b5; /* Hijau pastel */
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #8cc29d; /* Hijau pastel lebih gelap */
+        }
+        .btn-secondary {
+            background-color: #f0f0f0; /* Abu-abu pastel */
+            color: #555;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            transition: background-color 0.3s ease;
+        }
+        .btn-secondary:hover {
+            background-color: #e0e0e0; /* Abu-abu pastel lebih gelap */
+        }
+        input[type="number"], input[type="text"], select {
+            border: 1px solid #ddd;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            width: 100%;
+            background-color: #fcfcfc;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+        }
+        th, td {
+            border: 1px solid #eee;
+            padding: 0.75rem;
+            text-align: left;
+        }
+        th {
+            background-color: #e6f7ea; /* Hijau pastel sangat terang */
+            font-weight: 600;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: auto;
+            padding: 2rem;
+            border-radius: 1rem;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* Styling untuk grup kriteria */
+        .criteria-group {
+            border: 1px solid #cce7d0; /* Warna hijau pastel lebih gelap */
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            background-color: #f0fdf4; /* Warna hijau pastel sangat terang */
+        }
+        .criteria-group-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #4a5568; /* Warna abu-abu gelap */
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-4xl font-bold text-center mb-8 text-gray-800">Decision Support System Peserta Pelatihan Terbaik dengan Metode Profile Matching</h1>
+
+        <div id="upload-section" class="card">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">1. Unggah Data Peserta (CSV)</h2>
+            <p class="mb-4 text-gray-600">Silakan unggah file CSV yang berisi data peserta pelatihan. Pastikan baris pertama adalah header kriteria. Contoh: Nama,A1,A2,A3,B1,B2,B3,B4</p>
+            <input type="file" id="csvFileInput" accept=".csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+            <button id="uploadCsvBtn" class="mt-4 btn-primary">Unggah CSV</button>
+            <div id="uploadStatus" class="mt-2 text-sm text-gray-600"></div>
+        </div>
+
+        <div id="criteria-section" class="card hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">2. Definisi Kriteria & Bobot</h2>
+            <p class="mb-4 text-gray-600">Tentukan apakah setiap kriteria adalah Core Factor (CF) atau Secondary Factor (SF), dan masukkan nilai target (profil ideal) serta persentase bobot CF dan SF.</p>
+
+            <div id="criteria-groups-container">
+                </div>
+
+            <div class="mt-6 flex items-center space-x-4">
+                <label for="coreFactorPercentage" class="text-gray-700 font-medium">Persentase Core Factor (x%):</label>
+                <input type="number" id="coreFactorPercentage" value="60" min="0" max="100" class="w-24 text-center">
+                <label for="secondaryFactorPercentage" class="text-gray-700 font-medium">Persentase Secondary Factor (y%):</label>
+                <input type="number" id="secondaryFactorPercentage" value="40" min="0" max="100" class="w-24 text-center" readonly>
+            </div>
+            <p id="percentageWarning" class="text-red-500 text-sm mt-2 hidden">Total persentase CF dan SF harus 100%.</p>
+
+            <button id="processCriteriaBtn" class="mt-6 btn-primary">Proses Kriteria</button>
+        </div>
+
+        <div id="results-section" class="card hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">3. Hasil Perhitungan Profile Matching</h2>
+
+            <h3 class="text-xl font-semibold mb-2 text-gray-700">Nilai GAP</h3>
+            <div class="overflow-x-auto">
+                <table id="gapTable" class="min-w-full">
+                    <thead>
+                        </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+
+            <h3 class="text-xl font-semibold mt-6 mb-2 text-gray-700">Nilai Mapping GAP</h3>
+            <div class="overflow-x-auto">
+                <table id="mappingGapTable" class="min-w-full">
+                    <thead>
+                        </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+
+            <h3 class="text-xl font-semibold mt-6 mb-2 text-gray-700">Nilai Core Factor (NCF) dan Secondary Factor (NSF)</h3>
+            <div class="overflow-x-auto">
+                <table id="ncfNsfTable" class="min-w-full">
+                    <thead>
+                        <tr>
+                            <th>Peserta</th>
+                            <th>NCF</th>
+                            <th>NSF</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+
+            <h3 class="text-xl font-semibold mt-6 mb-2 text-gray-700">Nilai Akhir dan Perangkingan</h3>
+            <p id="bestParticipantInfo" class="text-lg font-medium text-gray-800 mb-4"></p>
+            <div class="overflow-x-auto">
+                <table id="rankingTable" class="min-w-full">
+                    <thead>
+                        <tr>
+                            <th>Peringkat</th>
+                            <th>Peserta</th>
+                            <th>Nilai Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+            <button id="resetAppBtn" class="mt-6 btn-secondary">Mulai Ulang</button>
+        </div>
+    </div>
+
+    <div id="messageModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <p id="modalMessage" class="text-lg text-gray-800"></p>
+        </div>
+    </div>
+
+    <script>
+        // Variabel global untuk menyimpan data
+        let participantsData = []; // Data peserta dari CSV
+        let criteriaHeaders = []; // Semua header dari CSV
+        let subCriteriaMap = {}; // Memetakan kriteria utama ke sub-kriteria (misal: 'Aspek Pengetahuan': ['A1', 'A2', 'A3'])
+        let criteriaConfig = {}; // Menyimpan tipe (CF/SF) dan target untuk setiap sub-kriteria individual (misal: 'A1': {type: 'CF', target: 4})
+        let originalParticipantsOrder = []; // Untuk mempertahankan urutan asli peserta pada tabel GAP/Mapping
+
+        // Pemetaan bobot nilai GAP sesuai dokumen PDF
+        let gapWeightMap = {
+            '0': 4,
+            '1': 3.5,
+            '-1': 3,
+            '2': 2.5,
+            '-2': 2,
+            '3': 1.5,
+            '-3': 1
+        };
+
+        // Elemen DOM
+        const csvFileInput = document.getElementById('csvFileInput');
+        const uploadCsvBtn = document.getElementById('uploadCsvBtn');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const uploadSection = document.getElementById('upload-section');
+        const criteriaSection = document.getElementById('criteria-section');
+        const criteriaGroupsContainer = document.getElementById('criteria-groups-container');
+        const coreFactorPercentageInput = document.getElementById('coreFactorPercentage');
+        const secondaryFactorPercentageInput = document.getElementById('secondaryFactorPercentage');
+        const percentageWarning = document.getElementById('percentageWarning');
+        const processCriteriaBtn = document.getElementById('processCriteriaBtn');
+        const resultsSection = document.getElementById('results-section');
+        const gapTable = document.getElementById('gapTable'); // Tabel GAP baru
+        const mappingGapTable = document.getElementById('mappingGapTable'); // Tabel Mapping GAP baru
+        const ncfNsfTable = document.getElementById('ncfNsfTable');
+        const rankingTable = document.getElementById('rankingTable');
+        const bestParticipantInfo = document.getElementById('bestParticipantInfo');
+        const resetAppBtn = document.getElementById('resetAppBtn');
+        const messageModal = document.getElementById('messageModal');
+        const modalMessage = document.getElementById('modalMessage');
+        const closeButton = document.querySelector('.close-button');
+
+        // Fungsi untuk menampilkan modal pesan
+        function showModal(message) {
+            modalMessage.textContent = message;
+            messageModal.style.display = 'flex';
+        }
+
+        // Event listener untuk menutup modal
+        closeButton.onclick = function() {
+            messageModal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == messageModal) {
+                messageModal.style.display = 'none';
+            }
+        }
+
+        // Fungsi untuk mengunggah dan memproses file CSV
+        uploadCsvBtn.addEventListener('click', () => {
+            const file = csvFileInput.files[0];
+            if (!file) {
+                showModal('Mohon pilih file CSV terlebih dahulu.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                try {
+                    parseCSV(text);
+                    uploadStatus.textContent = `File "${file.name}" berhasil diunggah.`;
+                    uploadSection.classList.add('hidden');
+                    criteriaSection.classList.remove('hidden');
+                    renderCriteriaInputs();
+                } catch (error) {
+                    showModal('Gagal memproses file CSV: ' + error.message);
+                    uploadStatus.textContent = 'Gagal mengunggah file.';
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Fungsi untuk mengurai CSV
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) {
+                throw new Error('File CSV kosong.');
+            }
+
+            // Ambil header (baris pertama)
+            criteriaHeaders = lines[0].split(',').map(header => header.trim());
+            if (criteriaHeaders.length === 0) {
+                throw new Error('Header kriteria tidak ditemukan di file CSV.');
+            }
+
+            // Definisikan kriteria utama dan sub-kriterianya berdasarkan permintaan pengguna
+            // Ini mengasumsikan struktur tetap seperti A1, A2, A3, B1, B2, B3, B4 di header CSV
+            subCriteriaMap = {
+                'Aspek Pengetahuan': [],
+                'Aspek Keterampilan': []
+            };
+
+            criteriaHeaders.forEach(header => {
+                if (header.toLowerCase() === 'nama' || header.toLowerCase() === 'peserta') {
+                    return; // Lewati kolom nama peserta
+                }
+                if (header.startsWith('A')) {
+                    subCriteriaMap['Aspek Pengetahuan'].push(header);
+                } else if (header.startsWith('B')) {
+                    subCriteriaMap['Aspek Keterampilan'].push(header);
+                }
+                // Tambahkan kondisi lain di sini jika ada kriteria utama lain seperti C, D, dll.
+            });
+
+            // Ambil data peserta (mulai dari baris kedua)
+            participantsData = [];
+            originalParticipantsOrder = []; // Reset urutan asli
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(value => value.trim());
+                if (values.length !== criteriaHeaders.length) {
+                    console.warn(`Baris ${i + 1} memiliki jumlah kolom yang tidak sesuai dengan header. Baris diabaikan.`);
+                    continue;
+                }
+                let participant = {};
+                criteriaHeaders.forEach((header, index) => {
+                    participant[header] = values[index];
+                });
+                participantsData.push(participant);
+                originalParticipantsOrder.push({ ...participant }); // Simpan salinan untuk urutan asli
+            }
+
+            if (participantsData.length === 0) {
+                throw new Error('Tidak ada data peserta yang valid ditemukan di file CSV.');
+            }
+        }
+
+        // Fungsi untuk merender input kriteria secara dinamis, dikelompokkan berdasarkan kriteria utama
+        function renderCriteriaInputs() {
+            criteriaGroupsContainer.innerHTML = '';
+            // Iterasi melalui setiap kriteria utama yang terdeteksi
+            for (const mainCriteria in subCriteriaMap) {
+                // Hanya tampilkan grup jika ada sub-kriteria di dalamnya
+                if (subCriteriaMap[mainCriteria].length > 0) {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'criteria-group';
+                    groupDiv.innerHTML = `<h3 class="criteria-group-title">${mainCriteria}</h3>`;
+
+                    const subCriteriaGrid = document.createElement('div');
+                    subCriteriaGrid.className = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+
+                    // Iterasi melalui setiap sub-kriteria dalam grup
+                    subCriteriaMap[mainCriteria].forEach(subCriteria => {
+                        const div = document.createElement('div');
+                        div.className = 'p-4 border rounded-lg bg-blue-50';
+                        div.innerHTML = `
+                            <label class="block text-gray-700 font-medium mb-2">${subCriteria}</label>
+                            <div class="mb-2">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="type-${subCriteria}" value="CF" class="form-radio text-green-600" checked>
+                                    <span class="ml-2 text-gray-600">Core Factor (CF)</span>
+                                </label>
+                                <label class="inline-flex items-center ml-4">
+                                    <input type="radio" name="type-${subCriteria}" value="SF" class="form-radio text-purple-600">
+                                    <span class="ml-2 text-gray-600">Secondary Factor (SF)</span>
+                                </label>
+                            </div>
+                            <label for="target-${subCriteria}" class="block text-gray-600 text-sm mb-1">Nilai Target (Profil Ideal):</label>
+                            <input type="number" id="target-${subCriteria}" class="w-full" placeholder="Masukkan nilai target">
+                        `;
+                        subCriteriaGrid.appendChild(div);
+                    });
+                    groupDiv.appendChild(subCriteriaGrid);
+                    criteriaGroupsContainer.appendChild(groupDiv);
+                }
+            }
+        }
+
+        // Event listener untuk perubahan persentase Core Factor
+        coreFactorPercentageInput.addEventListener('input', () => {
+            let cfPercentage = parseFloat(coreFactorPercentageInput.value);
+            if (isNaN(cfPercentage)) cfPercentage = 0;
+            if (cfPercentage < 0) cfPercentage = 0;
+            if (cfPercentage > 100) cfPercentage = 100;
+
+            coreFactorPercentageInput.value = cfPercentage;
+            secondaryFactorPercentageInput.value = (100 - cfPercentage).toFixed(0);
+
+            if (cfPercentage + parseFloat(secondaryFactorPercentageInput.value) !== 100) {
+                percentageWarning.classList.remove('hidden');
+            } else {
+                percentageWarning.classList.add('hidden');
+            }
+        });
+
+        // Fungsi untuk memproses kriteria dan memulai perhitungan
+        processCriteriaBtn.addEventListener('click', () => {
+            // Validasi persentase
+            const cfPercentage = parseFloat(coreFactorPercentageInput.value);
+            const sfPercentage = parseFloat(secondaryFactorPercentageInput.value);
+            if (cfPercentage + sfPercentage !== 100) {
+                showModal('Total persentase Core Factor dan Secondary Factor harus 100%.');
+                return;
+            }
+
+            // Kumpulkan konfigurasi kriteria untuk setiap sub-kriteria
+            criteriaConfig = {};
+            let allTargetsFilled = true;
+            // Iterasi melalui semua sub-kriteria untuk mengumpulkan konfigurasinya
+            for (const mainCriteria in subCriteriaMap) {
+                subCriteriaMap[mainCriteria].forEach(subCriteria => {
+                    const typeCf = document.querySelector(`input[name="type-${subCriteria}"][value="CF"]`).checked;
+                    const targetInput = document.getElementById(`target-${subCriteria}`);
+                    const targetValue = parseFloat(targetInput.value);
+
+                    if (isNaN(targetValue)) {
+                        allTargetsFilled = false;
+                        return;
+                    }
+
+                    criteriaConfig[subCriteria] = {
+                        type: typeCf ? 'CF' : 'SF',
+                        target: targetValue
+                    };
+                });
+                if (!allTargetsFilled) break; // Keluar jika ada target yang belum terisi
+            }
+
+            if (!allTargetsFilled) {
+                showModal('Mohon isi semua nilai target untuk setiap kriteria.');
+                return;
+            }
+
+            calculateProfileMatching();
+            criteriaSection.classList.add('hidden');
+            resultsSection.classList.remove('hidden');
+        });
+
+        // Fungsi utama perhitungan Profile Matching
+        function calculateProfileMatching() {
+            let results = []; // Ini akan dalam urutan peserta asli
+
+            originalParticipantsOrder.forEach(participant => { // Iterasi melalui urutan asli
+                let participantResult = {
+                    name: participant[criteriaHeaders[0]], // Asumsi kolom pertama adalah nama
+                    originalData: participant, // Simpan data asli peserta
+                    gaps: {},
+                    mappingGaps: {},
+                    coreFactors: [],
+                    secondaryFactors: [],
+                    ncf: 0,
+                    nsf: 0,
+                    totalScore: 0
+                };
+
+                // 1. Hitung Nilai GAP dan Mapping GAP
+                // Iterasi melalui semua sub-kriteria untuk menghitung GAP dan Mapping GAP
+                for (const mainCriteria in subCriteriaMap) {
+                    subCriteriaMap[mainCriteria].forEach(subCriteria => {
+                        const participantValue = parseFloat(participant[subCriteria]);
+                        const targetValue = criteriaConfig[subCriteria].target;
+
+                        if (isNaN(participantValue)) {
+                            console.warn(`Nilai peserta untuk kriteria ${subCriteria} pada peserta ${participantResult.name} tidak valid.`);
+                            participantResult.gaps[subCriteria] = NaN;
+                            participantResult.mappingGaps[subCriteria] = NaN;
+                            return;
+                        }
+
+                        const gap = participantValue - targetValue;
+                        participantResult.gaps[subCriteria] = gap;
+                        participantResult.mappingGaps[subCriteria] = gapWeightMap[gap.toString()] || 0; // Default ke 0 jika tidak ada di map
+
+                        if (criteriaConfig[subCriteria].type === 'CF') {
+                            participantResult.coreFactors.push(participantResult.mappingGaps[subCriteria]);
+                        } else {
+                            participantResult.secondaryFactors.push(participantResult.mappingGaps[subCriteria]);
+                        }
+                    });
+                }
+
+                // 2. Hitung Nilai Core Factor (NCF) dan Secondary Factor (NSF)
+                const sumCF = participantResult.coreFactors.reduce((acc, val) => acc + val, 0);
+                const countCF = participantResult.coreFactors.length;
+                participantResult.ncf = countCF > 0 ? sumCF / countCF : 0;
+
+                const sumSF = participantResult.secondaryFactors.reduce((acc, val) => acc + val, 0);
+                const countSF = participantResult.secondaryFactors.length;
+                participantResult.nsf = countSF > 0 ? sumSF / countSF : 0;
+
+                // 3. Hitung Nilai Akhir (NT)
+                const cfPercentage = parseFloat(coreFactorPercentageInput.value) / 100;
+                const sfPercentage = parseFloat(secondaryFactorPercentageInput.value) / 100;
+                participantResult.totalScore = (cfPercentage * participantResult.ncf) + (sfPercentage * participantResult.nsf);
+
+                results.push(participantResult);
+            });
+
+            // Urutkan hasil untuk perangkingan, tetapi pertahankan urutan asli untuk tabel GAP/Mapping
+            const rankedResults = [...results].sort((a, b) => b.totalScore - a.totalScore); // Buat salinan untuk pengurutan
+
+            displayResults(results, rankedResults); // Lewatkan kedua hasil (asli dan terurut)
+        }
+
+        // Fungsi untuk menampilkan hasil di tabel
+        function displayResults(originalOrderResults, rankedResults) {
+            // Tampilkan Tabel Nilai GAP
+            let gapTableHeaderHtml = '<tr><th>No</th><th>Nama Kriteria</th>';
+            originalOrderResults.forEach((p, index) => {
+                gapTableHeaderHtml += `<th>Peserta ${index + 1}</th>`; // Skor mentah peserta
+            });
+            gapTableHeaderHtml += `<th>Profile Kriteria</th>`;
+            originalOrderResults.forEach((p, index) => {
+                gapTableHeaderHtml += `<th>GAP Peserta ${index + 1}</th>`;
+            });
+            gapTableHeaderHtml += '</tr>';
+            gapTable.querySelector('thead').innerHTML = gapTableHeaderHtml;
+
+            let gapTableBodyHtml = '';
+            let subCriteriaCounter = 0; // Untuk nomor urut kriteria
+            for (const mainCriteria in subCriteriaMap) {
+                subCriteriaMap[mainCriteria].forEach(subCriteria => {
+                    subCriteriaCounter++;
+                    gapTableBodyHtml += `<tr><td>${subCriteriaCounter}</td><td>${subCriteria}</td>`;
+                    // Skor mentah peserta untuk sub-kriteria ini
+                    originalOrderResults.forEach(p => {
+                        const value = parseFloat(p.originalData[subCriteria]);
+                        gapTableBodyHtml += `<td>${isNaN(value) ? '-' : value.toFixed(2)}</td>`;
+                    });
+                    // Profile Kriteria (target)
+                    gapTableBodyHtml += `<td>${criteriaConfig[subCriteria].target.toFixed(2)}</td>`;
+                    // GAP untuk setiap peserta untuk sub-kriteria ini
+                    originalOrderResults.forEach(p => {
+                        const gapValue = p.gaps[subCriteria];
+                        gapTableBodyHtml += `<td>${isNaN(gapValue) ? '-' : gapValue.toFixed(2)}</td>`;
+                    });
+                    gapTableBodyHtml += '</tr>';
+                });
+            }
+            gapTable.querySelector('tbody').innerHTML = gapTableBodyHtml;
+
+
+            // Tampilkan Tabel Nilai Mapping GAP
+            let mappingGapTableHeaderHtml = '<tr><th>No</th><th>Nama Kriteria</th>';
+            originalOrderResults.forEach((p, index) => {
+                mappingGapTableHeaderHtml += `<th>GAP Peserta ${index + 1}</th>`; // Nilai GAP
+            });
+            originalOrderResults.forEach((p, index) => {
+                mappingGapTableHeaderHtml += `<th>Mapping GAP Peserta ${index + 1}</th>`; // Nilai Mapping GAP
+            });
+            mappingGapTableHeaderHtml += '</tr>';
+            mappingGapTable.querySelector('thead').innerHTML = mappingGapTableHeaderHtml;
+
+            let mappingGapBodyHtml = '';
+            subCriteriaCounter = 0; // Reset counter untuk tabel ini
+            for (const mainCriteria in subCriteriaMap) {
+                subCriteriaMap[mainCriteria].forEach(subCriteria => {
+                    subCriteriaCounter++;
+                    mappingGapBodyHtml += `<tr><td>${subCriteriaCounter}</td><td>${subCriteria}</td>`;
+                    // GAP untuk setiap peserta untuk sub-kriteria ini
+                    originalOrderResults.forEach(p => {
+                        const gapValue = p.gaps[subCriteria];
+                        mappingGapBodyHtml += `<td>${isNaN(gapValue) ? '-' : gapValue.toFixed(2)}</td>`;
+                    });
+                    // Mapping GAP untuk setiap peserta untuk sub-kriteria ini
+                    originalOrderResults.forEach(p => {
+                        const mappingGapValue = p.mappingGaps[subCriteria];
+                        mappingGapBodyHtml += `<td>${isNaN(mappingGapValue) ? '-' : mappingGapValue.toFixed(2)}</td>`;
+                    });
+                    mappingGapBodyHtml += '</tr>';
+                });
+            }
+            mappingGapTable.querySelector('tbody').innerHTML = mappingGapBodyHtml;
+
+            // Tampilkan NCF dan NSF
+            let ncfNsfBodyHtml = '';
+            originalOrderResults.forEach(p => { // Gunakan originalOrderResults di sini juga
+                ncfNsfBodyHtml += `
+                    <tr>
+                        <td>${p.name}</td>
+                        <td>${p.ncf.toFixed(2)}</td>
+                        <td>${p.nsf.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            ncfNsfTable.querySelector('tbody').innerHTML = ncfNsfBodyHtml;
+
+            // Tampilkan Perangkingan
+            let rankingBodyHtml = '';
+            rankedResults.forEach((p, index) => {
+                rankingBodyHtml += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${p.name}</td>
+                        <td>${p.totalScore.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            rankingTable.querySelector('tbody').innerHTML = rankingBodyHtml;
+
+            // Tampilkan informasi peserta terbaik
+            if (rankedResults.length > 0) {
+                bestParticipantInfo.textContent = `Peserta terbaik: ${rankedResults[0].name} dengan skor ${rankedResults[0].totalScore.toFixed(2)}.`;
+            } else {
+                bestParticipantInfo.textContent = '';
+            }
+        }
+
+        // Fungsi untuk mereset aplikasi
+        resetAppBtn.addEventListener('click', () => {
+            // Reset semua variabel global
+            participantsData = [];
+            criteriaHeaders = [];
+            subCriteriaMap = {};
+            criteriaConfig = {};
+            originalParticipantsOrder = [];
+
+            // Reset input file
+            csvFileInput.value = '';
+            uploadStatus.textContent = '';
+
+            // Sembunyikan bagian hasil dan kriteria, tampilkan bagian upload
+            resultsSection.classList.add('hidden');
+            criteriaSection.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+
+            // Reset persentase
+            coreFactorPercentageInput.value = 60;
+            secondaryFactorPercentageInput.value = 40;
+            percentageWarning.classList.add('hidden');
+
+            // Kosongkan tabel
+            gapTable.querySelector('thead').innerHTML = '';
+            gapTable.querySelector('tbody').innerHTML = '';
+            mappingGapTable.querySelector('thead').innerHTML = '';
+            mappingGapTable.querySelector('tbody').innerHTML = '';
+            ncfNsfTable.querySelector('tbody').innerHTML = '';
+            rankingTable.querySelector('tbody').innerHTML = '';
+            bestParticipantInfo.textContent = '';
+        });
+    </script>
+</body>
+</html>
